@@ -1,7 +1,10 @@
 from flask import Flask, render_template_string, request, jsonify
 from datetime import datetime
+from admin.admin import admin_bp
 
 app = Flask(__name__)
+
+app.register_blueprint(admin_bp, url_prefix='/admin')
 
 # Data reservasi sementara (gunakan database untuk production)
 reservations = []
