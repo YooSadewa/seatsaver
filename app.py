@@ -1,9 +1,12 @@
 from flask import Flask, render_template_string, request, jsonify
 from datetime import datetime
+from admin.login import login_bp
 from admin.admin import admin_bp
 
 app = Flask(__name__)
+app.secret_key = 'seatsaver_secret_key'
 
+app.register_blueprint(login_bp, url_prefix='/admin')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
 # Data reservasi sementara (gunakan database untuk production)
@@ -391,4 +394,4 @@ def get_reservations():
     return jsonify({'reservations': reservations})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

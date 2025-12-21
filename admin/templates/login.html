@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Admin</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            background-image: url("{{ url_for('static', filename='img/bg-login.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        h1 {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .card {
+            background: rgba(18, 17, 17, 0.4);
+            border-radius: 12px;
+            border: none;
+        }
+
+        /* Input transparan */
+        .form-control {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-control:focus {
+            background: rgba(0, 0, 0, 0.65);
+            border-color: #ffc107;
+            color: #fff;
+            box-shadow: none;
+        }
+
+        .input-group-text {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid vh-100 d-flex align-items-center">
+    <div class="ms-5">
+        <h1 class="mb-4">SeatSaver</h1>
+{% if error %}
+<div class="alert alert-danger">
+    <strong>Login Gagal!</strong> {{ error }}
+</div>
+{% endif %}
+        <form method="POST" class="card p-4 shadow" style="width: 350px;">
+            <h3 class="text-center mb-3 text-white">Login</h3>
+
+            <!-- Username -->
+            <div class="mb-3">
+                <label class="text-white mb-1">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fa-solid fa-user"></i>
+                    </span>
+                    <input type="text" name="username" class="form-control" placeholder="Masukkan username" required>
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="mb-3">
+                <label class="text-white mb-1">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+                </div>
+            </div>
+
+            <button class="btn btn-warning w-100 rounded-5 text-white fw-bold mt-3" type="submit">
+                Login
+            </button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

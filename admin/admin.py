@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for, session
+from functools import wraps
 import mysql.connector
 
 # Perhatikan: template_folder menunjuk ke folder templates di dalam admin
@@ -18,9 +19,19 @@ def get_db_connection():
     conn = mysql.connector.connect(**db_config)
     return conn
 
+# Decorator untuk proteksi login
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_login'):
+            return redirect(url_for('login_bp.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Route Dashboard
 # Nanti aksesnya jadi: localhost:5000/admin/dashboard
 @admin_bp.route('/dashboard')
+@login_required
 def dashboard():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -54,4 +65,4 @@ def dashboard():
     cursor.close()
     conn.close()
     
-    return render_template('dashboard.html', daily=daily, monthly=monthly, data=reservations)
+    return render_template('dashboard.html', daily=daily, monthly=monthly, data=reservations, )
