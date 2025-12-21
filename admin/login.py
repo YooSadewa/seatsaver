@@ -49,7 +49,7 @@ def login():
                 error = 'Password salah'
             else:
                 session['admin_login'] = True
-                session['admin_id'] = admin['id']
+                session['admin_id'] = admin['id_admin']
                 session['admin_name'] = admin['username']
                 return redirect(url_for('admin_bp.dashboard'))
 
