@@ -1,16 +1,43 @@
 from flask import Flask, render_template_string, request, jsonify
+from flask_cors import CORS
 from datetime import datetime
 from admin.login import login_bp
 from admin.admin import admin_bp
+import mysql.connector
+from mysql.connector import Error
 
 app = Flask(__name__)
 app.secret_key = 'seatsaver_secret_key'
 
+# Enable CORS
+CORS(app)
+
 app.register_blueprint(login_bp, url_prefix='/admin')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
-# Data reservasi sementara (gunakan database untuk production)
-reservations = []
+# Konfigurasi Database
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '',
+    'database': 'db_reservasi'
+}
+
+def get_db_connection():
+    """Membuat koneksi ke database"""
+    try:
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='',
+            database='db_reservasi',
+            connection_timeout=10
+        )
+        print("✅ DB Connected")
+        return connection
+    except Exception as e:
+        print(f"❌ DB Error: {e}")
+        return None
 
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -97,7 +124,7 @@ HTML_TEMPLATE = '''
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         
-        .form-control:focus {
+        .form-control:focus, .form-select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 0.2rem rgba(212, 165, 116, 0.25);
         }
@@ -234,39 +261,62 @@ HTML_TEMPLATE = '''
                         <form id="reservationForm">
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">Nama Lengkap</label>
-                                    <input type="text" class="form-control" id="nama" required>
+                                    <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="nama_pelanggan" placeholder="Masukkan nama lengkap" required>
                                 </div>
+                                
                                 <div class="col-md-6">
-                                    <label class="form-label">No. Telepon</label>
-                                    <input type="tel" class="form-control" id="telepon" required>
+                                    <label class="form-label">No. Telepon <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="no_telp" placeholder="08xxxxxxxxxx" pattern="[0-9]{10,13}" required>
                                 </div>
+                                
                                 <div class="col-md-6">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="email" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Jumlah Orang</label>
-                                    <select class="form-select" id="jumlah" required>
-                                        <option value="">Pilih...</option>
-                                        <option value="1">1 Orang</option>
-                                        <option value="2">2 Orang</option>
-                                        <option value="3">3 Orang</option>
-                                        <option value="4">4 Orang</option>
-                                        <option value="5">5+ Orang</option>
+                                    <label class="form-label">No. Meja <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="no_meja" required>
+                                        <option value="">Pilih Nomor Meja...</option>
+                                        <option value="1">Meja 1</option>
+                                        <option value="2">Meja 2</option>
+                                        <option value="3">Meja 3</option>
+                                        <option value="4">Meja 4</option>
+                                        <option value="5">Meja 5</option>
+                                        <option value="6">Meja 6</option>
+                                        <option value="7">Meja 7</option>
+                                        <option value="8">Meja 8</option>
+                                        <option value="9">Meja 9</option>
+                                        <option value="10">Meja 10</option>
                                     </select>
                                 </div>
+                                
                                 <div class="col-md-6">
-                                    <label class="form-label">Tanggal</label>
-                                    <input type="date" class="form-control" id="tanggal" required>
+                                    <label class="form-label">Jumlah Kursi <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="jumlah_kursi" required>
+                                        <option value="">Pilih...</option>
+                                        <option value="1">1 Kursi</option>
+                                        <option value="2">2 Kursi</option>
+                                        <option value="3">3 Kursi</option>
+                                        <option value="4">4 Kursi</option>
+                                        <option value="5">5 Kursi</option>
+                                        <option value="6">6 Kursi</option>
+                                    </select>
                                 </div>
+                                
                                 <div class="col-md-6">
-                                    <label class="form-label">Waktu</label>
-                                    <input type="time" class="form-control" id="waktu" required>
+                                    <label class="form-label">Tanggal Reservasi <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" id="hari_reservasi" required>
                                 </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label">Waktu <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control" id="jam_reservasi" required>
+                                </div>
+                                
                                 <div class="col-12">
-                                    <label class="form-label">Catatan Khusus (Opsional)</label>
-                                    <textarea class="form-control" id="catatan" rows="3"></textarea>
+                                    <label class="form-label">Total DP</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="number" class="form-control" id="total_dp" placeholder="50000" min="0" value="0">
+                                    </div>
+                                    <small class="text-muted">Minimal Rp 50.000 atau kosongkan jika bayar di tempat</small>
                                 </div>
                                 <div class="col-12">
                                     <button type="submit" class="btn btn-primary w-100">
@@ -324,26 +374,51 @@ HTML_TEMPLATE = '''
                 Reservasi Anda telah berhasil dikonfirmasi. Kami akan menghubungi Anda segera.
             </div>
         </div>
+        
+        <div id="errorToast" class="toast" role="alert">
+            <div class="toast-header bg-danger text-white">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong class="me-auto">Error!</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Terjadi kesalahan. Silakan coba lagi.
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Set minimum date to today
-        document.getElementById('tanggal').min = new Date().toISOString().split('T')[0];
+        document.getElementById('hari_reservasi').min = new Date().toISOString().split('T')[0];
         
         // Handle form submission
         document.getElementById('reservationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Ambil nilai DP
+            const dpValue = parseInt(document.getElementById('total_dp').value) || 0;
+            
+            // Validasi DP (jika diisi harus minimal 50000)
+            if (dpValue > 0 && dpValue < 50000) {
+                const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                document.getElementById('errorToast').querySelector('.toast-body').textContent = 
+                    'DP minimal Rp 50.000 atau kosongkan jika bayar di tempat';
+                errorToast.show();
+                return;
+            }
+            
             const formData = {
-                nama: document.getElementById('nama').value,
-                telepon: document.getElementById('telepon').value,
-                email: document.getElementById('email').value,
-                jumlah: document.getElementById('jumlah').value,
-                tanggal: document.getElementById('tanggal').value,
-                waktu: document.getElementById('waktu').value,
-                catatan: document.getElementById('catatan').value
+                nama_pelanggan: document.getElementById('nama_pelanggan').value.trim(),
+                no_telp: document.getElementById('no_telp').value.trim(),
+                no_meja: parseInt(document.getElementById('no_meja').value),
+                jumlah_kursi: parseInt(document.getElementById('jumlah_kursi').value),
+                hari_reservasi: document.getElementById('hari_reservasi').value,
+                jam_reservasi: document.getElementById('jam_reservasi').value,
+                total_dp: dpValue
             };
+            
+            console.log('Sending data:', formData); // Debug log
             
             try {
                 const response = await fetch('/api/reservasi', {
@@ -354,13 +429,25 @@ HTML_TEMPLATE = '''
                     body: JSON.stringify(formData)
                 });
                 
+                const result = await response.json();
+                console.log('Response:', result); // Debug log
+                
                 if (response.ok) {
                     const toast = new bootstrap.Toast(document.getElementById('successToast'));
                     toast.show();
                     document.getElementById('reservationForm').reset();
+                } else {
+                    const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                    document.getElementById('errorToast').querySelector('.toast-body').textContent = 
+                        result.message || 'Terjadi kesalahan. Silakan coba lagi.';
+                    errorToast.show();
                 }
             } catch (error) {
-                alert('Terjadi kesalahan. Silakan coba lagi.');
+                console.error('Error:', error);
+                const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                document.getElementById('errorToast').querySelector('.toast-body').textContent = 
+                    'Tidak dapat terhubung ke server: ' + error.message;
+                errorToast.show();
             }
         });
         
@@ -385,15 +472,192 @@ def index():
 
 @app.route('/api/reservasi', methods=['POST'])
 def create_reservation():
-    data = request.json
-    data['id'] = len(reservations) + 1
-    data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    reservations.append(data)
-    return jsonify({'success': True, 'message': 'Reservasi berhasil dibuat', 'data': data})
+    try:
+        data = request.json
+        print(f"Received data: {data}")  # Debug log
+        
+        # Validasi data
+        required_fields = ['nama_pelanggan', 'no_telp', 'no_meja', 'jumlah_kursi', 'hari_reservasi', 'jam_reservasi']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                print(f"Validation failed: {field} is missing")
+                return jsonify({
+                    'success': False, 
+                    'message': f'Field {field} harus diisi'
+                }), 400
+        
+        print("Validation passed")
+        
+        connection = get_db_connection()
+        
+        if not connection:
+            print("Database connection failed")
+            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
+        
+        print("Database connected")
+        
+        cursor = connection.cursor()
+        
+        # Konversi total_dp ke string sesuai database VARCHAR
+        total_dp = str(data.get('total_dp', '0'))
+        
+        print(f"total_dp converted: {total_dp}")
+        
+        # Query disesuaikan dengan struktur tabel di database
+        query = """
+            INSERT INTO reservasi 
+            (nama_pelanggan, no_meja, jumlah_kursi, no_telp, hari_reservasi, jam_reservasi, total_dp, status) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            data['nama_pelanggan'],
+            int(data['no_meja']),
+            int(data['jumlah_kursi']),
+            data['no_telp'],
+            data['hari_reservasi'],
+            data['jam_reservasi'],
+            total_dp,
+            'pending'
+        )
+        
+        print(f"Executing query with values: {values}")  # Debug log
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        reservation_id = cursor.lastrowid
+        
+        print(f"Reservation created with ID: {reservation_id}")
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Reservasi berhasil dibuat',
+            'reservation_id': reservation_id
+        }), 201
+        
+    except Error as e:
+        print(f"Database Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+    except ValueError as e:
+        print(f"Value Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': 'Format data tidak valid'}), 400
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 @app.route('/api/reservasi', methods=['GET'])
 def get_reservations():
-    return jsonify({'reservations': reservations})
+    try:
+        connection = get_db_connection()
+        
+        if not connection:
+            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM reservasi ORDER BY id_reservasi DESC")
+        reservations = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'reservations': reservations}), 200
+        
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+
+@app.route('/api/reservasi/<int:id>', methods=['GET'])
+def get_reservation(id):
+    try:
+        connection = get_db_connection()
+        
+        if not connection:
+            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM reservasi WHERE id_reservasi = %s", (id,))
+        reservation = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        if reservation:
+            return jsonify({'success': True, 'reservation': reservation}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Reservasi tidak ditemukan'}), 404
+            
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+
+@app.route('/api/reservasi/<int:id>', methods=['PUT'])
+def update_reservation(id):
+    try:
+        data = request.json
+        connection = get_db_connection()
+        
+        if not connection:
+            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
+        
+        cursor = connection.cursor()
+        
+        query = """
+            UPDATE reservasi 
+            SET nama_pelanggan=%s, no_meja=%s, jumlah_kursi=%s, no_telp=%s, 
+                hari_reservasi=%s, jam_reservasi=%s, total_dp=%s, status=%s
+            WHERE id_reservasi=%s
+        """
+        
+        values = (
+            data.get('nama_pelanggan'),
+            int(data.get('no_meja')),
+            int(data.get('jumlah_kursi')),
+            data.get('no_telp'),
+            data.get('hari_reservasi'),
+            data.get('jam_reservasi'),
+            str(data.get('total_dp', 0)),
+            data.get('status', 'pending'),
+            id
+        )
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Reservasi berhasil diupdate'}), 200
+        
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+
+@app.route('/api/reservasi/<int:id>', methods=['DELETE'])
+def delete_reservation(id):
+    try:
+        connection = get_db_connection()
+        
+        if not connection:
+            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
+        
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM reservasi WHERE id_reservasi = %s", (id,))
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Reservasi berhasil dihapus'}), 200
+        
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, port=5000, use_reloader=True)
