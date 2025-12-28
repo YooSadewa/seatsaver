@@ -18,7 +18,7 @@ HTML_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restoran Nusantara - Reservasi Meja</title>
+    <title>SeatSaver - Smart Restaurant Booking System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -130,7 +130,7 @@ HTML_TEMPLATE = '''
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="#"><i class="fas fa-utensils me-2"></i>Restoran Nusantara</a>
+            <a class="navbar-brand" href="#"><i class="fas fa-utensils me-2"></i>SeatSaver</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -148,9 +148,11 @@ HTML_TEMPLATE = '''
     <!-- Hero Section -->
     <section id="home" class="hero">
         <div class="container">
-            <h1>Selamat Datang di Restoran Nusantara</h1>
-            <p>Nikmati Pengalaman Kuliner Terbaik dengan Cita Rasa Nusantara</p>
-            <a href="#reservasi" class="btn btn-primary btn-lg">Reservasi Sekarang</a>
+            <h1>SeatSaver</h1>
+            <p>Aplikasi reservasi meja restoran berbasis web <br> 
+                untuk memudahkan pelanggan memesan meja secara cepat, efisien, dan tanpa kontak langsung</p>
+            <a href="#reservasi" class="btn btn-primary btn-lg">
+                <i class="fas fa-calendar-plus me-2"></i>Reservasi Sekarang</a>
         </div>
     </section>
 
@@ -160,23 +162,23 @@ HTML_TEMPLATE = '''
             <div class="row">
                 <div class="col-md-4">
                     <div class="feature-box">
-                        <i class="fas fa-star"></i>
-                        <h4>Kualitas Terjamin</h4>
-                        <p>Bahan-bahan fresh dan berkualitas tinggi</p>
+                        <i class="fas fa-calendar-check"></i>
+                        <h4>Reservasi Online</h4>
+                        <p>Pelanggan dapat melakukan pemesanan meja secara digital</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="feature-box">
-                        <i class="fas fa-clock"></i>
-                        <h4>Layanan Cepat</h4>
-                        <p>Pelayanan ramah dan efisien</p>
+                        <i class="fas fa-user-shield"></i>
+                        <h4>Tanpa Kontak Langsung</h4>
+                        <p>Reservasi dilakukan tanpa perlu datang ke restoran</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="feature-box">
-                        <i class="fas fa-heart"></i>
-                        <h4>Suasana Nyaman</h4>
-                        <p>Tempat yang nyaman untuk keluarga</p>
+                        <i class="fas fa-globe"></i>
+                        <h4>Akses Kapan Saja</h4>
+                        <p>Dapat digunakan kapan saja dan dimana saja</p>
                     </div>
                 </div>
             </div>
@@ -225,7 +227,7 @@ HTML_TEMPLATE = '''
     <!-- Reservation Section -->
     <section id="reservasi" class="py-5 bg-light">
         <div class="container">
-            <h2 class="section-title text-center">Reservasi Meja</h2>
+            <h2 class="section-title text-center">Reservasi Meja Online</h2>
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <div class="reservation-form">
@@ -306,7 +308,7 @@ HTML_TEMPLATE = '''
     <!-- Footer -->
     <footer class="text-center">
         <div class="container">
-            <p class="mb-0">&copy; 2024 Restoran Nusantara. All Rights Reserved.</p>
+            <p class="mb-0">&copy; 2025 SeatSaver - Smart Restaurant Booking System</p>
         </div>
     </footer>
 
