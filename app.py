@@ -1,43 +1,39 @@
 from flask import Flask, render_template_string, request, jsonify
-from flask_cors import CORS
-from datetime import datetime
 from admin.login import login_bp
 from admin.admin import admin_bp
 import mysql.connector
-from mysql.connector import Error
+from contextlib import contextmanager
 
 app = Flask(__name__)
 app.secret_key = 'seatsaver_secret_key'
 
-# Enable CORS
-CORS(app)
-
 app.register_blueprint(login_bp, url_prefix='/admin')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
-# Konfigurasi Database
+# Konfigurasi Database - DIGUNAKAN
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
     'password': '',
-    'database': 'db_reservasi'
+    'database': 'db_reservasi',
+    'connection_timeout': 10
 }
 
+@contextmanager
 def get_db_connection():
-    """Membuat koneksi ke database"""
+    """Context manager untuk koneksi database - otomatis close"""
+    connection = None
     try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            password='',
-            database='db_reservasi',
-            connection_timeout=10
-        )
-        print("✅ DB Connected")
-        return connection
+        connection = mysql.connector.connect(**DB_CONFIG)
+        yield connection
     except Exception as e:
-        print(f"❌ DB Error: {e}")
-        return None
+        print(f"Database Error: {e}")
+        if connection:
+            connection.rollback()
+        raise
+    finally:
+        if connection and connection.is_connected():
+            connection.close()
 
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -389,18 +385,15 @@ HTML_TEMPLATE = '''
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Set minimum date to today
         document.getElementById('hari_reservasi').min = new Date().toISOString().split('T')[0];
         
-        // Handle form submission
         document.getElementById('reservationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Ambil nilai DP
-            const dpValue = parseInt(document.getElementById('total_dp').value) || 0;
+            const dpValue = document.getElementById('total_dp').value.trim();
+            const dpNumber = parseInt(dpValue) || 0;
             
-            // Validasi DP (jika diisi harus minimal 50000)
-            if (dpValue > 0 && dpValue < 50000) {
+            if (dpNumber > 0 && dpNumber < 50000) {
                 const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
                 document.getElementById('errorToast').querySelector('.toast-body').textContent = 
                     'DP minimal Rp 50.000 atau kosongkan jika bayar di tempat';
@@ -411,28 +404,23 @@ HTML_TEMPLATE = '''
             const formData = {
                 nama_pelanggan: document.getElementById('nama_pelanggan').value.trim(),
                 no_telp: document.getElementById('no_telp').value.trim(),
-                no_meja: parseInt(document.getElementById('no_meja').value),
-                jumlah_kursi: parseInt(document.getElementById('jumlah_kursi').value),
+                no_meja: document.getElementById('no_meja').value,
+                jumlah_kursi: document.getElementById('jumlah_kursi').value,
                 hari_reservasi: document.getElementById('hari_reservasi').value,
                 jam_reservasi: document.getElementById('jam_reservasi').value,
-                total_dp: dpValue
+                total_dp: dpNumber.toString()
             };
-            
-            console.log('Sending data:', formData); // Debug log
             
             try {
                 const response = await fetch('/api/reservasi', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
                 
                 const result = await response.json();
-                console.log('Response:', result); // Debug log
                 
-                if (response.ok) {
+                if (response.ok && result.success) {
                     const toast = new bootstrap.Toast(document.getElementById('successToast'));
                     toast.show();
                     document.getElementById('reservationForm').reset();
@@ -443,7 +431,6 @@ HTML_TEMPLATE = '''
                     errorToast.show();
                 }
             } catch (error) {
-                console.error('Error:', error);
                 const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
                 document.getElementById('errorToast').querySelector('.toast-body').textContent = 
                     'Tidak dapat terhubung ke server: ' + error.message;
@@ -451,7 +438,6 @@ HTML_TEMPLATE = '''
             }
         });
         
-        // Smooth scrolling
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -474,64 +460,43 @@ def index():
 def create_reservation():
     try:
         data = request.json
-        print(f"Received data: {data}")  # Debug log
         
-        # Validasi data
-        required_fields = ['nama_pelanggan', 'no_telp', 'no_meja', 'jumlah_kursi', 'hari_reservasi', 'jam_reservasi']
-        for field in required_fields:
-            if field not in data or not data[field]:
-                print(f"Validation failed: {field} is missing")
-                return jsonify({
-                    'success': False, 
-                    'message': f'Field {field} harus diisi'
-                }), 400
+        # Validasi digabung - lebih efisien
+        required = ['nama_pelanggan', 'no_telp', 'no_meja', 'jumlah_kursi', 'hari_reservasi', 'jam_reservasi']
+        for field in required:
+            if not data.get(field):
+                return jsonify({'success': False, 'message': f'{field} harus diisi'}), 400
         
-        print("Validation passed")
-        
-        connection = get_db_connection()
-        
-        if not connection:
-            print("Database connection failed")
-            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
-        
-        print("Database connected")
-        
-        cursor = connection.cursor()
-        
-        # Konversi total_dp ke string sesuai database VARCHAR
+        # Konversi tipe data
+        no_meja = int(data['no_meja'])
+        jumlah_kursi = int(data['jumlah_kursi'])
         total_dp = str(data.get('total_dp', '0'))
         
-        print(f"total_dp converted: {total_dp}")
-        
-        # Query disesuaikan dengan struktur tabel di database
-        query = """
-            INSERT INTO reservasi 
-            (nama_pelanggan, no_meja, jumlah_kursi, no_telp, hari_reservasi, jam_reservasi, total_dp, status) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        
-        values = (
-            data['nama_pelanggan'],
-            int(data['no_meja']),
-            int(data['jumlah_kursi']),
-            data['no_telp'],
-            data['hari_reservasi'],
-            data['jam_reservasi'],
-            total_dp,
-            'pending'
-        )
-        
-        print(f"Executing query with values: {values}")  # Debug log
-        
-        cursor.execute(query, values)
-        connection.commit()
-        
-        reservation_id = cursor.lastrowid
-        
-        print(f"Reservation created with ID: {reservation_id}")
-        
-        cursor.close()
-        connection.close()
+        # Gunakan context manager - otomatis close
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = """
+                INSERT INTO reservasi 
+                (nama_pelanggan, no_meja, jumlah_kursi, no_telp, hari_reservasi, jam_reservasi, total_dp, status) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            values = (
+                data['nama_pelanggan'],
+                no_meja,
+                jumlah_kursi,
+                data['no_telp'],
+                data['hari_reservasi'],
+                data['jam_reservasi'],
+                total_dp,
+                'pending'
+            )
+            
+            cursor.execute(query, values)
+            conn.commit()
+            reservation_id = cursor.lastrowid
+            cursor.close()
         
         return jsonify({
             'success': True, 
@@ -539,125 +504,10 @@ def create_reservation():
             'reservation_id': reservation_id
         }), 201
         
-    except Error as e:
-        print(f"Database Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
     except ValueError as e:
-        print(f"Value Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': 'Format data tidak valid'}), 400
+        return jsonify({'success': False, 'message': f'Format data tidak valid: {str(e)}'}), 400
     except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
-
-@app.route('/api/reservasi', methods=['GET'])
-def get_reservations():
-    try:
-        connection = get_db_connection()
-        
-        if not connection:
-            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
-        
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM reservasi ORDER BY id_reservasi DESC")
-        reservations = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        return jsonify({'success': True, 'reservations': reservations}), 200
-        
-    except Error as e:
-        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
-
-@app.route('/api/reservasi/<int:id>', methods=['GET'])
-def get_reservation(id):
-    try:
-        connection = get_db_connection()
-        
-        if not connection:
-            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
-        
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM reservasi WHERE id_reservasi = %s", (id,))
-        reservation = cursor.fetchone()
-        
-        cursor.close()
-        connection.close()
-        
-        if reservation:
-            return jsonify({'success': True, 'reservation': reservation}), 200
-        else:
-            return jsonify({'success': False, 'message': 'Reservasi tidak ditemukan'}), 404
-            
-    except Error as e:
-        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
-
-@app.route('/api/reservasi/<int:id>', methods=['PUT'])
-def update_reservation(id):
-    try:
-        data = request.json
-        connection = get_db_connection()
-        
-        if not connection:
-            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
-        
-        cursor = connection.cursor()
-        
-        query = """
-            UPDATE reservasi 
-            SET nama_pelanggan=%s, no_meja=%s, jumlah_kursi=%s, no_telp=%s, 
-                hari_reservasi=%s, jam_reservasi=%s, total_dp=%s, status=%s
-            WHERE id_reservasi=%s
-        """
-        
-        values = (
-            data.get('nama_pelanggan'),
-            int(data.get('no_meja')),
-            int(data.get('jumlah_kursi')),
-            data.get('no_telp'),
-            data.get('hari_reservasi'),
-            data.get('jam_reservasi'),
-            str(data.get('total_dp', 0)),
-            data.get('status', 'pending'),
-            id
-        )
-        
-        cursor.execute(query, values)
-        connection.commit()
-        
-        cursor.close()
-        connection.close()
-        
-        return jsonify({'success': True, 'message': 'Reservasi berhasil diupdate'}), 200
-        
-    except Error as e:
-        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
-
-@app.route('/api/reservasi/<int:id>', methods=['DELETE'])
-def delete_reservation(id):
-    try:
-        connection = get_db_connection()
-        
-        if not connection:
-            return jsonify({'success': False, 'message': 'Gagal terhubung ke database'}), 500
-        
-        cursor = connection.cursor()
-        cursor.execute("DELETE FROM reservasi WHERE id_reservasi = %s", (id,))
-        connection.commit()
-        
-        cursor.close()
-        connection.close()
-        
-        return jsonify({'success': True, 'message': 'Reservasi berhasil dihapus'}), 200
-        
-    except Error as e:
-        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'Terjadi kesalahan: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, use_reloader=True)
