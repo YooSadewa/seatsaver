@@ -312,7 +312,7 @@ HTML_TEMPLATE = '''
                                         <span class="input-group-text">Rp</span>
                                         <input type="number" class="form-control" id="total_dp" placeholder="50000" min="0" value="0">
                                     </div>
-                                    <small class="text-muted">Minimal Rp 50.000 atau kosongkan jika bayar di tempat</small>
+                                    <small class="text-muted">Minimal Rp 50.000</small>
                                 </div>
                                 <div class="col-12">
                                     <button type="submit" class="btn btn-primary w-100">
