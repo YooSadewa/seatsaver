@@ -1,13 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, session
+from flask import Blueprint, render_template, redirect, url_for, session, request
 from functools import wraps
 import mysql.connector
 
-# Perhatikan: template_folder menunjuk ke folder templates di dalam admin
-admin_bp = Blueprint('admin_bp', __name__, 
-                     template_folder='templates',
-                     static_folder='static')
+admin_bp = Blueprint(
+    'admin_bp',
+    __name__,
+    template_folder='templates',
+    static_folder='static'
+)
 
-# Konfigurasi Database (Sesuaikan)
 db_config = {
     'host': 'localhost',
     'user': 'root',
@@ -16,10 +17,8 @@ db_config = {
 }
 
 def get_db_connection():
-    conn = mysql.connector.connect(**db_config)
-    return conn
+    return mysql.connector.connect(**db_config)
 
-# Decorator untuk proteksi login
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -28,24 +27,28 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Route Dashboard
-# Nanti aksesnya jadi: localhost:5000/admin/dashboard
 @admin_bp.route('/dashboard')
 @login_required
 def dashboard():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    # 1. Hitung Harian
-    cursor.execute("SELECT COUNT(*) as total FROM reservasi WHERE hari_reservasi = CURDATE()")
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total 
+        FROM reservasi 
+        WHERE hari_reservasi = CURDATE()
+    """)
     daily = cursor.fetchone()['total']
-    
-    # 2. Hitung Bulanan
-    cursor.execute("SELECT COUNT(*) as total FROM reservasi WHERE MONTH(hari_reservasi) = MONTH(CURDATE()) AND YEAR(hari_reservasi) = YEAR(CURDATE())")
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total 
+        FROM reservasi 
+        WHERE MONTH(hari_reservasi) = MONTH(CURDATE())
+        AND YEAR(hari_reservasi) = YEAR(CURDATE())
+    """)
     monthly = cursor.fetchone()['total']
-    
-    # 3. Data Tabel
-    query_tabel = """
+
+    cursor.execute("""
         SELECT 
             id_reservasi,
             nama_pelanggan,
@@ -53,16 +56,43 @@ def dashboard():
             jumlah_kursi,
             no_telp,
             hari_reservasi,
-            TIME_FORMAT(jam_reservasi, '%H:%i') as jam_reservasi, -- INI YANG BIKIN DETIK HILANG
+            TIME_FORMAT(jam_reservasi, '%H:%i') AS jam_reservasi,
             status
-        FROM reservasi 
-        ORDER BY hari_reservasi DESC, jam_reservasi DESC 
+        FROM reservasi
+        ORDER BY hari_reservasi DESC, jam_reservasi DESC
         LIMIT 5
-    """
-    cursor.execute(query_tabel)
+    """)
     reservations = cursor.fetchall()
-    
+
     cursor.close()
     conn.close()
-    
-    return render_template('dashboard.html', daily=daily, monthly=monthly, data=reservations, )
+
+    return render_template(
+        'dashboard.html',
+        daily=daily,
+        monthly=monthly,
+        data=reservations
+    )
+@admin_bp.route('/update_status', methods=['POST'])
+@login_required
+def update_status():
+    id_reservasi = request.form.get('id_reservasi')
+    status = request.form.get('status')
+
+    if status not in ['terima', 'tolak']:
+        return redirect(url_for('admin_bp.dashboard'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE reservasi 
+        SET status = %s 
+        WHERE id_reservasi = %s
+    """, (status, id_reservasi))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('admin_bp.dashboard'))
